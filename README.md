@@ -1,6 +1,8 @@
 # πWrite 
 A joystick input method made using Godot and Rust
 
+![running πWrite](piwrite.gif)
+
 # Building
 Requirements:  
 - Cargo
