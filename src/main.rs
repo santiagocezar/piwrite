@@ -3,7 +3,6 @@ use gilrs::{
 };
 use enigo::*;
 use std::io::{self, Write};
-use gdnative::*;
 
 struct Stick {
     x: f32,
@@ -36,69 +35,51 @@ fn direction8 (x: f32, y: f32) -> Option<Direction> {
         else if angle < 360.0   { Some(Direction::Northeast) }
         else                    { Some(Direction::North) }
     } 
-    else { None } 
-}
-#[derive(NativeClass)]
-#[inherit(Node)]
-pub struct PiWrite {
-    gilrs: Gilrs,
-    active_gamepad: Option<GamepadId>,
-    input: Enigo,
+    else { None }
 }
 
-#[allow(dead_code)]
-#[methods]
-impl PiWrite {
-    
-    fn _init (_parent: Node) -> PiWrite {
-        PiWrite {
-            gilrs: Gilrs::new().unwrap(),
-            active_gamepad: None,
-            input: Enigo::new()
-        }
-    }
+fn main () {
+    let mut gilrs = Gilrs::new().unwrap();
+    let mut active_gamepad = None;
+    let mut input = Enigo::new();
+    println!("PiWrite — Joystick input method by Santiago Cézar <santiagocezar2013@gmail.com>");
 
-    #[export]
-    fn _ready(&self, _parent: Node) {
-        godot_print!("PiWrite — Joystick input method by Santiago Cézar <santiagocezar2013@gmail.com>");
-    }
-    #[export]
-    fn _process(&mut self, _parent: Node, _delta: f64) {
+    let letter_table = [
+        ['a', 'b', 'c', 'd'],
+        ['e', 'f', 'g', 'h'],
+        ['i', 'j', 'k', 'l'],
+        ['m', 'n', 'ñ', 'o'],
+        ['p', 'q', 'r', 's'],
+        ['t', 'u', 'v', 'w'],
+        ['x', 'y', 'z', ' '],
+        ['.', ',', '-', '<'],
+    ];
 
-        let letter_table = [
-            ['a', 'b', 'c', 'd'],
-            ['e', 'f', 'g', 'h'],
-            ['i', 'j', 'k', 'l'],
-            ['m', 'n', 'ñ', 'o'],
-            ['p', 'q', 'r', 's'],
-            ['t', 'u', 'v', 'w'],
-            ['x', 'y', 'z', ' '],
-            ['.', ',', '-', '<'],
-        ];
-
-        while let Some(ev) = self.gilrs.next_event() {
+    loop {
+        while let Some(ev) = gilrs.next_event() {
+            active_gamepad = Some(ev.id);
             // println!("{:?} New event from {}: {:?}", time, id, event);
             match ev.event {
                 EventType::ButtonReleased(btn, _code) => {
                     match btn {
-                        Button::RightTrigger => self.input.key_up(Key::Backspace),
-                        Button::LeftTrigger => self.input.key_up(Key::Space),
-                        Button::LeftTrigger2 => self.input.key_up(Key::Shift),
+                        Button::RightTrigger => input.key_up(Key::Backspace),
+                        Button::LeftTrigger => input.key_up(Key::Space),
+                        Button::LeftTrigger2 => input.key_up(Key::Shift),
                         _ => ()
                     }
                 }
                 EventType::ButtonPressed(btn, _code) => {
                     if let Some(letter) = match btn {
-                        Button::RightTrigger => {self.input.key_down(Key::Backspace); None},
-                        Button::LeftTrigger => {self.input.key_down(Key::Space); None},
-                        Button::LeftTrigger2 => {self.input.key_down(Key::Shift); None},
+                        Button::RightTrigger => {input.key_down(Key::Backspace); None},
+                        Button::LeftTrigger => {input.key_down(Key::Space); None},
+                        Button::LeftTrigger2 => {input.key_down(Key::Shift); None},
                         Button::DPadUp => Some(0),
                         Button::DPadRight => Some(1),
                         Button::DPadDown => Some(2),
                         Button::DPadLeft => Some(3),
                         _ => None
                     } {
-                        if let Some(gpad) = self.active_gamepad.map(|id| self.gilrs.gamepad(id)) {
+                        if let Some(gpad) = active_gamepad.map(|id| gilrs.gamepad(id)) {
                             
                             let mut left = Stick {
                                 x: gpad.value(Axis::LeftStickX),
@@ -118,7 +99,7 @@ impl PiWrite {
                             io::stdout().flush().unwrap();
                             
                             if let Some(r) = direction8(right.x, right.y) {
-                                self.input.key_sequence(letter_table[match r {
+                                input.key_sequence(letter_table[match r {
                                     Direction::South =>     0,
                                     Direction::Southeast => 1,
                                     Direction::East =>      2,
@@ -130,20 +111,11 @@ impl PiWrite {
                                 }][letter].to_string().as_str());
                             }
                         }
-
+    
                     }
                 },
                 _ => ()
             }
-            self.active_gamepad = Some(ev.id);
         }
     }
 }
-
-fn init(handle: gdnative::init::InitHandle) {
-    handle.add_class::<PiWrite>();
-}
-
-godot_gdnative_init!();
-godot_nativescript_init!(init);
-godot_gdnative_terminate!();
