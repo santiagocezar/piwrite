@@ -1,13 +1,19 @@
-use gilrs::{
-    Gilrs, GamepadId, Button, EventType, Axis
-};
-use enigo::*;
-use std::io::{self, Write};
 
-struct Stick {
-    x: f32,
-    y: f32
-}
+use gilrs::{
+    Gilrs, Button as gButton, EventType, Axis
+};
+use enigo::{
+    Enigo,
+    KeyboardControllable,
+    Key as eKey,
+};
+use std::io::{self, Write};
+use piston_window::*;
+use glutin_window::GlutinWindow;
+use ::image::{
+    load_from_memory,
+    DynamicImage
+};
 
 enum Direction {
     South,
@@ -20,8 +26,8 @@ enum Direction {
     Southwest
 }
 
-fn direction8 (x: f32, y: f32) -> Option<Direction> {
-    let angle = x.atan2(y) * (180.0 / std::f32::consts::PI) + 180.0;
+fn direction8 (x: f64, y: f64) -> Option<Direction> {
+    let angle = x.atan2(y) * (180.0 / std::f64::consts::PI) + 180.0;
     let angle = (angle + 22.5) % 360.0;
 
     if x.hypot(y).abs() > 0.9 {
@@ -38,11 +44,32 @@ fn direction8 (x: f32, y: f32) -> Option<Direction> {
     else { None }
 }
 
-fn main () {
+struct Indicator {
+    position: (f64, f64),
+    radius: types::Radius
+}
+
+fn main () -> Result<(), String> {
+
+    let mut window: PistonWindow<GlutinWindow> =
+        WindowSettings::new("πWrite", [454, 454])
+            .exit_on_esc(true)
+            .samples(4)
+            .build().expect("Failed to create window.");
+
+    window.window.ctx.window().set_always_on_top(true);
+
+    // Embed image in executable
+    let _pie: DynamicImage = load_from_memory(include_bytes!("letterpie.png")).unwrap();
+    let pie = Texture::from_image(
+        &mut window.create_texture_context(),
+        &_pie.to_rgba(),
+        &TextureSettings::new()
+    ).expect("Failed to load texture.");
+
     let mut gilrs = Gilrs::new().unwrap();
     let mut active_gamepad = None;
     let mut input = Enigo::new();
-    println!("PiWrite — Joystick input method by Santiago Cézar <santiagocezar2013@gmail.com>");
 
     let letter_table = [
         ['a', 'b', 'c', 'd'],
@@ -55,67 +82,99 @@ fn main () {
         ['.', ',', '-', '<'],
     ];
 
-    loop {
+    let size = window.size();
+    let half_size = (size.width / 2.0, size.height / 2.0);
+    let mut ind = Indicator {
+        position: half_size,
+        radius: 4.0,
+    };
+
+    let mut shift = false;
+    
+    let mut letter_idx = None;
+
+    while let Some(event) = window.next() {
+        
         while let Some(ev) = gilrs.next_event() {
             active_gamepad = Some(ev.id);
             // println!("{:?} New event from {}: {:?}", time, id, event);
             match ev.event {
                 EventType::ButtonReleased(btn, _code) => {
                     match btn {
-                        Button::RightTrigger => input.key_up(Key::Backspace),
-                        Button::LeftTrigger => input.key_up(Key::Space),
-                        Button::LeftTrigger2 => input.key_up(Key::Shift),
+                        gButton::RightTrigger => input.key_up(eKey::Backspace),
+                        gButton::LeftTrigger => input.key_up(eKey::Space),
                         _ => ()
                     }
                 }
                 EventType::ButtonPressed(btn, _code) => {
-                    if let Some(letter) = match btn {
-                        Button::RightTrigger => {input.key_down(Key::Backspace); None},
-                        Button::LeftTrigger => {input.key_down(Key::Space); None},
-                        Button::LeftTrigger2 => {input.key_down(Key::Shift); None},
-                        Button::DPadUp => Some(0),
-                        Button::DPadRight => Some(1),
-                        Button::DPadDown => Some(2),
-                        Button::DPadLeft => Some(3),
-                        _ => None
-                    } {
-                        if let Some(gpad) = active_gamepad.map(|id| gilrs.gamepad(id)) {
-                            
-                            let mut left = Stick {
-                                x: gpad.value(Axis::LeftStickX),
-                                y: gpad.value(Axis::LeftStickY)
-                            };
-                            let mut right = Stick {
-                                x: gpad.value(Axis::RightStickX),
-                                y: gpad.value(Axis::RightStickY)
-                            };
-                
-                            left.x *= (1.0 - 0.5 * left.y.powi(2)).sqrt();
-                            left.y *= (1.0 - 0.5 * left.x.powi(2)).sqrt();
-                            right.x *= (1.0 - 0.5 * right.y.powi(2)).sqrt();
-                            right.y *= (1.0 - 0.5 * right.x.powi(2)).sqrt();
-                
-                            print!("\rLeft Hypot: {:.2}. Right Hypot: {:.2}.  ", left.x.hypot(left.y), right.x.hypot(right.y));
-                            io::stdout().flush().unwrap();
-                            
-                            if let Some(r) = direction8(right.x, right.y) {
-                                input.key_sequence(letter_table[match r {
-                                    Direction::South =>     0,
-                                    Direction::Southeast => 1,
-                                    Direction::East =>      2,
-                                    Direction::Northeast => 3,
-                                    Direction::North =>     4,
-                                    Direction::Northwest => 5,
-                                    Direction::West =>      6,
-                                    Direction::Southwest => 7,
-                                }][letter].to_string().as_str());
+                    letter_idx = match btn {
+                        gButton::RightTrigger => {input.key_down(eKey::Backspace); None},
+                        gButton::LeftTrigger => {input.key_down(eKey::Space); None},
+                        gButton::LeftTrigger2 => {
+                            if shift {
+                                input.key_up(eKey::Shift);
+                                shift = false;
                             }
-                        }
-    
+                            else {
+                                input.key_down(eKey::Shift); 
+                                shift = true;
+                            }
+                            None
+                        },
+                        gButton::DPadUp => Some(0),
+                        gButton::DPadRight => Some(1),
+                        gButton::DPadDown => Some(2),
+                        gButton::DPadLeft => Some(3),
+                        _ => None
                     }
                 },
                 _ => ()
             }
         }
+    
+        if let Some(gpad) = active_gamepad.map(|id| gilrs.gamepad(id)) {
+    
+            let right = (
+                (gpad.value(Axis::RightStickX)) as f64,
+                (gpad.value(Axis::RightStickY)) as f64
+            );
+            
+            let right= (
+                (right.0 * (1.0 - 0.5 * right.1 * right.1).sqrt() * 100.0) as f64,
+                (right.1 * (1.0 - 0.5 * right.0 * right.0).sqrt() * 100.0) as f64
+            );
+            
+            ind.position.0 = half_size.0 + (right.0 * 1.75);
+            ind.position.1 = half_size.1 - (right.1 * 1.75);
+    
+            io::stdout().flush().unwrap();
+            
+            if let Some(r) = direction8(right.0, right.1) {
+                if let Some(letter) = letter_idx {
+                    input.key_sequence(letter_table[match r {
+                        Direction::South =>     0,
+                        Direction::Southeast => 1,
+                        Direction::East =>      2,
+                        Direction::Northeast => 3,
+                        Direction::North =>     4,
+                        Direction::Northwest => 5,
+                        Direction::West =>      6,
+                        Direction::Southwest => 7,
+                    }][letter].to_string().as_str());
+                    letter_idx = None
+                }
+            }
+        }
+    
+        window.draw_2d(&event, |ctx, gfx, _dev| {
+            clear([1.0; 4], gfx);
+            image(&pie, ctx.transform, gfx);
+            ellipse([0.0,0.0,0.0,1.0],
+                    ellipse::circle(ind.position.0, ind.position.1, ind.radius), 
+                    ctx.transform, 
+                    gfx);
+        });
     }
+
+    Ok(())
 }
