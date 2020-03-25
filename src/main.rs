@@ -7,9 +7,8 @@ use enigo::{
     KeyboardControllable,
     Key as eKey,
 };
-use std::io::{self, Write};
 use piston_window::*;
-use glutin_window::GlutinWindow;
+use winit::Icon;
 use ::image::{
     load_from_memory,
     DynamicImage
@@ -24,7 +23,7 @@ enum Direction {
     Northwest,
     West,
     Southwest
-}
+}   
 
 fn direction8 (x: f64, y: f64) -> Option<Direction> {
     let angle = x.atan2(y) * (180.0 / std::f64::consts::PI) + 180.0;
@@ -51,13 +50,20 @@ struct Indicator {
 
 fn main () -> Result<(), String> {
 
-    let mut window: PistonWindow<GlutinWindow> =
+    let mut window: PistonWindow =
         WindowSettings::new("πWrite", [454, 454])
             .exit_on_esc(true)
             .samples(4)
             .build().expect("Failed to create window.");
 
     window.window.ctx.window().set_always_on_top(true);
+
+    let icon = load_from_memory(include_bytes!("icon.png")).unwrap().to_rgba();
+    window.window.ctx.window().set_window_icon(Some(Icon::from_rgba(
+        icon.into_raw(),
+        48,
+        48
+    ).expect("Failed to load icon")));
 
     // Embed image in executable
     let _pie: DynamicImage = load_from_memory(include_bytes!("letterpie.png")).unwrap();
@@ -146,9 +152,7 @@ fn main () -> Result<(), String> {
             
             ind.position.0 = half_size.0 + (right.0 * 1.75);
             ind.position.1 = half_size.1 - (right.1 * 1.75);
-    
-            io::stdout().flush().unwrap();
-            
+                
             if let Some(r) = direction8(right.0, right.1) {
                 if let Some(letter) = letter_idx {
                     input.key_sequence(letter_table[match r {
