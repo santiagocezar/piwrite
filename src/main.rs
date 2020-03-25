@@ -61,8 +61,8 @@ fn main () -> Result<(), String> {
     let icon = load_from_memory(include_bytes!("icon.png")).unwrap().to_rgba();
     window.window.ctx.window().set_window_icon(Some(Icon::from_rgba(
         icon.into_raw(),
-        48,
-        48
+        256,
+        256
     ).expect("Failed to load icon")));
 
     // Embed image in executable
