@@ -7,11 +7,6 @@ on:
     branches: [ master ]
 
 jobs:
-  before_install:
-  - sudo apt-get -y install libudev-dev
-  addons:
-    apt:
-      update: true
   build:
 
     runs-on: ubuntu-latest
