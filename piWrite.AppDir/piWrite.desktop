@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=piWrite
+GenericName[es_AR]=Un metodo de entrada para mandos que usa Rust
+GenericName=A joystick input method made using Rust
+Icon=piWrite
+Exec=piWrite
+Type=Application
+Categories=Utility;
