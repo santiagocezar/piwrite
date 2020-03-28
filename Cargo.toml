@@ -3,6 +3,7 @@ name = "piwrite"
 version = "0.1.0"
 authors = ["Santiago Cézar <santiagocezar2013@gmail.com>"]
 edition = "2018"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,3 +16,6 @@ enigo = "0.0.14"
 piston_window = "0.107.0"
 image = "0.23.2"
 winit = "0.19.1"
+
+[build-dependencies]
+embed-resource = "1.3"
