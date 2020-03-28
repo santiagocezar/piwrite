@@ -1,7 +1,5 @@
 
-use gilrs::{
-    Gilrs, Button as gButton, EventType, Axis
-};
+use gilrs::Button as gButton;
 use enigo::{
     Enigo,
     KeyboardControllable,
@@ -14,39 +12,10 @@ use ::image::{
     DynamicImage
 };
 
-enum Direction {
-    South,
-    Southeast,
-    East,
-    Northeast,
-    North,
-    Northwest,
-    West,
-    Southwest
-}   
-
-fn direction8 (x: f64, y: f64) -> Option<Direction> {
-    let angle = x.atan2(y) * (180.0 / std::f64::consts::PI) + 180.0;
-    let angle = (angle + 22.5) % 360.0;
-
-    if x.hypot(y).abs() > 0.9 {
-        if angle < 45.0         { Some(Direction::North) }
-        else if angle < 90.0    { Some(Direction::Northwest) }
-        else if angle < 135.0   { Some(Direction::West) }
-        else if angle < 180.0   { Some(Direction::Southwest) }
-        else if angle < 225.0   { Some(Direction::South) }
-        else if angle < 270.0   { Some(Direction::Southeast) }
-        else if angle < 315.0   { Some(Direction::East) }
-        else if angle < 360.0   { Some(Direction::Northeast) }
-        else                    { Some(Direction::North) }
-    } 
-    else { None }
-}
-
-struct Indicator {
-    position: (f64, f64),
-    radius: types::Radius
-}
+mod pie;
+use pie::{
+    Pie, Action, Direction
+};
 
 fn main () -> Result<(), String> {
 
@@ -73,8 +42,6 @@ fn main () -> Result<(), String> {
         &TextureSettings::new()
     ).expect("Failed to load texture.");
 
-    let mut gilrs = Gilrs::new().unwrap();
-    let mut active_gamepad = None;
     let mut input = Enigo::new();
 
     let letter_table = [
@@ -90,91 +57,71 @@ fn main () -> Result<(), String> {
 
     let size = window.size();
     let half_size = (size.width / 2.0, size.height / 2.0);
-    let mut ind = Indicator {
-        position: half_size,
-        radius: 4.0,
-    };
 
     let mut shift = false;
     
-    let mut letter_idx = None;
+    let mut letter_pie = Pie::new(8, 0.9);
 
     while let Some(event) = window.next() {
         
-        while let Some(ev) = gilrs.next_event() {
-            active_gamepad = Some(ev.id);
-            // println!("{:?} New event from {}: {:?}", time, id, event);
-            match ev.event {
-                EventType::ButtonReleased(btn, _code) => {
-                    match btn {
-                        gButton::RightTrigger => input.key_up(eKey::Backspace),
-                        gButton::LeftTrigger => input.key_up(eKey::Space),
-                        _ => ()
-                    }
-                }
-                EventType::ButtonPressed(btn, _code) => {
-                    letter_idx = match btn {
-                        gButton::RightTrigger => {input.key_down(eKey::Backspace); None},
-                        gButton::LeftTrigger => {input.key_down(eKey::Space); None},
-                        gButton::LeftTrigger2 => {
-                            if shift {
-                                input.key_up(eKey::Shift);
-                                shift = false;
-                            }
-                            else {
-                                input.key_down(eKey::Shift); 
-                                shift = true;
-                            }
-                            None
-                        },
-                        gButton::DPadUp => Some(0),
-                        gButton::DPadRight => Some(1),
-                        gButton::DPadDown => Some(2),
-                        gButton::DPadLeft => Some(3),
-                        _ => None
+        while let Some(p) = letter_pie.update() {
+            let mut l = None; 
+            match p {
+                Action::Press(dir) => match dir {
+                    Direction::South(slice) => {
+                        l = Some(letter_table[slice as usize][0])
+                    },
+                    Direction::East(slice) => {
+                        l = Some(letter_table[slice as usize][1])
+                    },
+                    Direction::North(slice) => {
+                        l = Some(letter_table[slice as usize][2])
+                    },
+                    Direction::West(slice) => {
+                        l = Some(letter_table[slice as usize][3])
+                    },
+                    Direction::Other(btn) => {
+                        match btn {
+                            gButton::RightTrigger => { input.key_down(eKey::Backspace) },
+                            gButton::LeftTrigger => { input.key_down(eKey::Space) },
+                            gButton::LeftTrigger2 => {
+                                if shift {
+                                    input.key_up(eKey::Shift);
+                                    shift = false;
+                                }
+                                else {
+                                    input.key_down(eKey::Shift); 
+                                    shift = true;
+                                }
+                            },
+                            _ => ()
+                        }
                     }
                 },
-                _ => ()
-            }
-        }
-    
-        if let Some(gpad) = active_gamepad.map(|id| gilrs.gamepad(id)) {
-    
-            let right = (
-                (gpad.value(Axis::RightStickX)) as f64,
-                (gpad.value(Axis::RightStickY)) as f64
-            );
-            
-            let right= (
-                (right.0 * (1.0 - 0.5 * right.1 * right.1).sqrt() * 100.0) as f64,
-                (right.1 * (1.0 - 0.5 * right.0 * right.0).sqrt() * 100.0) as f64
-            );
-            
-            ind.position.0 = half_size.0 + (right.0 * 1.75);
-            ind.position.1 = half_size.1 - (right.1 * 1.75);
-                
-            if let Some(r) = direction8(right.0, right.1) {
-                if let Some(letter) = letter_idx {
-                    input.key_sequence(letter_table[match r {
-                        Direction::South =>     0,
-                        Direction::Southeast => 1,
-                        Direction::East =>      2,
-                        Direction::Northeast => 3,
-                        Direction::North =>     4,
-                        Direction::Northwest => 5,
-                        Direction::West =>      6,
-                        Direction::Southwest => 7,
-                    }][letter].to_string().as_str());
-                    letter_idx = None
+
+                Action::Release(dir) => {
+                    l = None;
+                    if let Direction::Other(btn) = dir {
+                        match btn {
+                            gButton::RightTrigger => { input.key_up(eKey::Backspace) },
+                            gButton::LeftTrigger => { input.key_up(eKey::Space) },
+                            _ => ()
+                        }
+                    }
                 }
+            }
+            if let Some(k) = l {
+                input.key_click(eKey::Layout(k));
             }
         }
     
         window.draw_2d(&event, |ctx, gfx, _dev| {
             clear([1.0; 4], gfx);
             image(&pie, ctx.transform, gfx);
+            let x = half_size.0 + letter_pie.x * (1.0 - 0.5 * letter_pie.y * letter_pie.y).sqrt() * 175.0;
+            let y = half_size.1 + letter_pie.y * (1.0 - 0.5 * letter_pie.x * letter_pie.x).sqrt() * 175.0;
             ellipse([0.0,0.0,0.0,1.0],
-                    ellipse::circle(ind.position.0, ind.position.1, ind.radius), 
+                    ellipse::circle(x, y, 4.0), 
                     ctx.transform, 
                     gfx);
         });
