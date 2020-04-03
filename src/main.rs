@@ -1,5 +1,4 @@
 
-use gilrs::Button as gButton;
 use enigo::{
     Enigo,
     KeyboardControllable,
@@ -14,15 +13,14 @@ use ::image::{
 
 mod pie;
 use pie::{
-    Pie, Action, Direction
+    Pie, Action, Direction, piButton
 };
 
 fn main () -> Result<(), String> {
-
     let mut window: PistonWindow =
         WindowSettings::new("πWrite", [454, 454])
             .exit_on_esc(true)
-            .samples(4)
+            .samples(8)
             .build().expect("Failed to create window.");
 
     window.window.ctx.window().set_always_on_top(true);
@@ -33,14 +31,15 @@ fn main () -> Result<(), String> {
         256,
         256
     ).expect("Failed to load icon")));
-
     // Embed image in executable
-    let _pie: DynamicImage = load_from_memory(include_bytes!("letterpie.png")).unwrap();
-    let pie = Texture::from_image(
-        &mut window.create_texture_context(),
-        &_pie.to_rgba(),
-        &TextureSettings::new()
-    ).expect("Failed to load texture.");
+    let pie_tex = {
+        let _pie: DynamicImage = load_from_memory(include_bytes!("letterpie.png")).unwrap();
+        Texture::from_image(
+            &mut window.create_texture_context(),
+            &_pie.to_rgba(),
+            &TextureSettings::new()
+        ).expect("Failed to load texture.")
+    };
 
     let mut input = Enigo::new();
 
@@ -60,11 +59,11 @@ fn main () -> Result<(), String> {
 
     let mut shift = false;
     
-    let mut letter_pie = Pie::new(8, 0.9);
+    let mut pie = Pie::new(8, 0.9);
 
     while let Some(event) = window.next() {
         
-        while let Some(p) = letter_pie.update() {
+        while let Some(p) = pie.update() {
             let mut l = None; 
             match p {
                 Action::Press(dir) => match dir {
@@ -82,9 +81,9 @@ fn main () -> Result<(), String> {
                     },
                     Direction::Other(btn) => {
                         match btn {
-                            gButton::RightTrigger => { input.key_down(eKey::Backspace) },
-                            gButton::LeftTrigger => { input.key_down(eKey::Space) },
-                            gButton::LeftTrigger2 => {
+                            piButton::RightTrigger => { input.key_down(eKey::Backspace) },
+                            piButton::LeftTrigger => { input.key_down(eKey::Space) },
+                            piButton::LeftTrigger2 => {
                                 if shift {
                                     input.key_up(eKey::Shift);
                                     shift = false;
@@ -103,8 +102,8 @@ fn main () -> Result<(), String> {
                     l = None;
                     if let Direction::Other(btn) = dir {
                         match btn {
-                            gButton::RightTrigger => { input.key_up(eKey::Backspace) },
-                            gButton::LeftTrigger => { input.key_up(eKey::Space) },
+                            piButton::RightTrigger => { input.key_up(eKey::Backspace) },
+                            piButton::LeftTrigger => { input.key_up(eKey::Space) },
                             _ => ()
                         }
                     }
@@ -117,9 +116,9 @@ fn main () -> Result<(), String> {
     
         window.draw_2d(&event, |ctx, gfx, _dev| {
             clear([1.0; 4], gfx);
-            image(&pie, ctx.transform, gfx);
-            let x = half_size.0 + letter_pie.x * (1.0 - 0.5 * letter_pie.y * letter_pie.y).sqrt() * 175.0;
-            let y = half_size.1 + letter_pie.y * (1.0 - 0.5 * letter_pie.x * letter_pie.x).sqrt() * 175.0;
+            image(&pie_tex, ctx.transform, gfx);
+            let x = half_size.0 + pie.x * (1.0 - 0.5 * pie.y * pie.y).sqrt() * 175.0;
+            let y = half_size.1 + pie.y * (1.0 - 0.5 * pie.x * pie.x).sqrt() * 175.0;
             ellipse([0.0,0.0,0.0,1.0],
                     ellipse::circle(x, y, 4.0), 
                     ctx.transform, 

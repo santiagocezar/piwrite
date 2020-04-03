@@ -1,6 +1,8 @@
 use gilrs::{
-    Gilrs, Button, EventType, Axis
+    Gilrs, EventType, Axis
 };
+
+pub use gilrs::Button as piButton;
 
 pub struct Pie {
     pub slices: u8,
@@ -20,14 +22,14 @@ pub enum Direction {
     North(u8),
     East(u8),
     West(u8),
-    Other(Button)
+    Other(piButton)
 }
 
 impl Pie {
     pub fn new(slices: u8, deadzone: f64) -> Self {
         Self {
-            slices: slices,
-            deadzone: deadzone,
+            slices,
+            deadzone,
             gilrs: Gilrs::new().expect("Failed to create Gilrs."),
             x: 0.0, y: 0.0
         }
@@ -59,10 +61,10 @@ impl Pie {
                     if let Some(slice) = self.get_slice() {
                         println!("{}", slice);
                         match btn {
-                            Button::DPadUp => Some(Action::Press(Direction::South(slice))),
-                            Button::DPadRight => Some(Action::Press(Direction::East(slice))),
-                            Button::DPadDown => Some(Action::Press(Direction::North(slice))),
-                            Button::DPadLeft => Some(Action::Press(Direction::West(slice))),
+                            piButton::DPadUp => Some(Action::Press(Direction::South(slice))),
+                            piButton::DPadRight => Some(Action::Press(Direction::East(slice))),
+                            piButton::DPadDown => Some(Action::Press(Direction::North(slice))),
+                            piButton::DPadLeft => Some(Action::Press(Direction::West(slice))),
                             _ => Some(Action::Press(Direction::Other(btn)))
                         }
                     }
@@ -72,10 +74,10 @@ impl Pie {
                     if let Some(slice) = self.get_slice() {
                         println!("{}", slice);
                         match btn {
-                            Button::DPadUp => Some(Action::Release(Direction::South(slice))),
-                            Button::DPadRight => Some(Action::Release(Direction::East(slice))),
-                            Button::DPadDown => Some(Action::Release(Direction::North(slice))),
-                            Button::DPadLeft => Some(Action::Release(Direction::West(slice))),
+                            piButton::DPadUp => Some(Action::Release(Direction::South(slice))),
+                            piButton::DPadRight => Some(Action::Release(Direction::East(slice))),
+                            piButton::DPadDown => Some(Action::Release(Direction::North(slice))),
+                            piButton::DPadLeft => Some(Action::Release(Direction::West(slice))),
                             _ => Some(Action::Release(Direction::Other(btn)))
                         }
                     }
