@@ -1,4 +1,5 @@
 # πWrite 
+![Rust](https://github.com/santiagocezar/piwrite/workflows/Rust/badge.svg)  
 A joystick input method made with Rust
 
 ![running πWrite](piwrite.gif)
